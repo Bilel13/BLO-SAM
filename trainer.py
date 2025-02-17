@@ -16,19 +16,29 @@ from utils import DiceLoss, getStat
 from torchvision import transforms
 from icecream import ic
 import wandb
+import sys
+import os
+
+
 
 from prompt import Prompt
 from medpy import metric
 from cal_dice import dice_score
+from dataset_kvasir import MultiInstanceSegmentationDataset, RandomGenerator
+from dataset_kvasir import collate_fn  # Replace with actual path if needed
+
+
 
 
 def calc_loss(outputs, low_res_label_batch, ce_loss, dice_loss, dice_weight:float=0.8):
     low_res_logits = outputs['low_res_logits']
+    low_res_label_batch = torch.clamp(low_res_label_batch, min=0, max=255)
+    loss_ce = ce_loss(low_res_logits, low_res_label_batch.long())
+
     loss_ce = ce_loss(low_res_logits, low_res_label_batch[:].long())
     loss_dice = dice_loss(low_res_logits, low_res_label_batch, softmax=True)
     loss = (1 - dice_weight) * loss_ce + dice_weight * loss_dice
     return loss, loss_ce, loss_dice
-
 
 @torch.no_grad()
 def validate(args, model, validloader, multimask_output):
@@ -44,26 +54,27 @@ def validate(args, model, validloader, multimask_output):
 
         low_res_logits = outputs['low_res_logits']
         dice = dice_score(low_res_logits, low_res_label_batch)        
-        score_dice.append(dice.cpu().numpy())
+        score_dice.append(dice.cuda().numpy())
     model.train()
     return np.mean(score_dice)
 
+
 def trainer(args, model, snapshot_path, multimask_output, low_res):
     if args.dataset == 'kvasir':
-        from datasets.dataset_kvasir import Synapse_dataset, RandomGenerator
-    elif args.dataset == 'lung':
-        from datasets.dataset_lung import Synapse_dataset, RandomGenerator
-    elif args.dataset in ['brow', 'eye', 'hair', 'nose', 'mouth', 'celeb']:
-        from datasets.dataset_celeb import Synapse_dataset, RandomGenerator
-    elif args.dataset in ['car', 'wheel', 'window']:
-        from datasets.dataset_car import Synapse_dataset, RandomGenerator
-    elif args.dataset == 'teeth':
-        from datasets.dataset_teeth import Synapse_dataset, RandomGenerator
-    elif args.dataset == 'body':
-        from datasets.dataset_body import Synapse_dataset, RandomGenerator
-    else:
-        print("##### Unimplemented dataset #####")
-        sys.exit()
+        from dataset_kvasir import MultiInstanceSegmentationDataset, RandomGenerator
+    #elif args.dataset == 'lung':
+      #  from datasets.dataset_lung import Synapse_dataset, RandomGenerator
+    #elif args.dataset in ['brow', 'eye', 'hair', 'nose', 'mouth', 'celeb']:
+     #   from datasets.dataset_celeb import Synapse_dataset, RandomGenerator
+    #elif args.dataset in ['car', 'wheel', 'window']:
+      #  from datasets.dataset_car import Synapse_dataset, RandomGenerator
+    #elif args.dataset == 'teeth':
+      #  from datasets.dataset_teeth import Synapse_dataset, RandomGenerator
+    #elif args.dataset == 'body':
+       # from datasets.dataset_body import Synapse_dataset, RandomGenerator
+    #else:
+       # print("##### Unimplemented dataset #####")
+       # sys.exit() 
     
     exp_name = f"{args.dataset}-{args.num_data}-{args.exp_type}-lora_mask"
     logger = wandb.init(project='Auto-sam', name=exp_name, resume='allow', anonymous='must', mode=args.wandb_mode)
@@ -72,27 +83,26 @@ def trainer(args, model, snapshot_path, multimask_output, low_res):
     base_lr = args.base_lr
     num_classes = args.num_classes
     
-    db_train = Synapse_dataset(
-        train_dir=args.root_path, num_data=args.num_data, dataset=args.dataset,
+    db_train = MultiInstanceSegmentationDataset(
+        img_dir='/home/jovyan/BLO-SAM-master/train/images', label_dir='/home/jovyan/BLO-SAM-master/train/masks',
         transform=transforms.Compose([RandomGenerator(
-            output_size=[args.img_size, args.img_size], low_res=[low_res, low_res])
+            output_size=[256,256], low_res=[64,64])
         ]),
     )
-    
     num_train = int(len(db_train)*0.5)
     num_valid = len(db_train) - num_train
     selector = range(len(db_train))
-    logging.info("The length of train set is: {}".format(num_train))
-    logging.info("The length of train set is: {}".format(num_valid))
+    logging.info("The length of D1 set is: {}".format(num_train))
+    logging.info("The length of D2 set is: {}".format(num_valid))
     print("The length of train set is: {}".format(len(db_train)))
 
     def worker_init_fn(worker_id):
         random.seed(args.seed + worker_id)
-
-    trainloader = DataLoader(db_train, batch_size=args.batch_size, num_workers=4, pin_memory=True,
-                             worker_init_fn=worker_init_fn, sampler=selector[:num_train])
-    validloader = DataLoader(db_train, batch_size=args.batch_size, num_workers=4, pin_memory=True,
-                             worker_init_fn=worker_init_fn, sampler=selector[num_train:])
+        
+    trainloader = DataLoader(db_train, batch_size=args.batch_size, num_workers=2, pin_memory=True,
+                             worker_init_fn=worker_init_fn, sampler=selector[:num_train],collate_fn=collate_fn)
+    validloader = DataLoader(db_train, batch_size=args.batch_size, num_workers=2, pin_memory=True,
+                             worker_init_fn=worker_init_fn, sampler=selector[num_train:],collate_fn=collate_fn)
     
     model.train()
     ce_loss = nn.CrossEntropyLoss()
@@ -113,13 +123,19 @@ def trainer(args, model, snapshot_path, multimask_output, low_res):
     for epoch_num in range(max_epoch):
         for i_batch, sampled_batch in enumerate(trainloader):
             
-            image_batch, label_batch = sampled_batch['image'], sampled_batch['label']  # [b, c, h, w], [b, h, w]
+            image_batch, label_batch = sampled_batch['image'], sampled_batch['label']  
             low_res_label_batch = sampled_batch['low_res_label']
             image_batch, label_batch = image_batch.cuda(), label_batch.cuda()
+
+
             low_res_label_batch = low_res_label_batch.cuda()
+
+
+            #image_batch, label_batch = image_batch.cuda(), label_batch.cuda()
+            #low_res_label_batch = low_res_label_batch.cuda()
             
             outputs = model(image_batch, multimask_output, args.img_size)
-            loss, loss_ce, loss_dice = calc_loss(outputs, low_res_label_batch, ce_loss, dice_loss, args.dice_param)
+            loss, loss_ce, loss_dice = calc_loss(outputs, low_res_label_batch, ce_loss, dice_loss, args.dice_param)  # #low_res_label_batch
             logger.log({'info/stage1_loss': loss})
             optimizer.zero_grad()
             loss.backward()
@@ -157,14 +173,14 @@ def trainer(args, model, snapshot_path, multimask_output, low_res):
                     
                 ims = {}
                 image = (image - image.min()) / (image.max() - image.min())
-                image = image.mul(255).permute(1, 2, 0).to('cpu').numpy()
+                image = image.mul(255).permute(1, 2, 0).to('cuda').numpy()
                 ims['train/Image'] = wandb.Image(image)
                    
                 output_masks = torch.argmax(torch.softmax(output_masks, dim=1), dim=1, keepdim=True)[0, ...]                
-                output_masks = output_masks.mul(255).to('cpu').numpy()
+                output_masks = output_masks.mul(255).to('cuda').numpy()
                 ims['train/Prediction'] = wandb.Image(output_masks)
 
-                labs = labs.mul(255).to('cpu').numpy()
+                labs = labs.mul(255).to('cuda').numpy()
                 ims['train/GroundTruth'] = wandb.Image(labs)
 
                 logger.log(ims)

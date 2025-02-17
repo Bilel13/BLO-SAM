@@ -5,6 +5,9 @@ import random
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
+import sys
+import os
+
 
 from importlib import import_module
 
@@ -15,12 +18,13 @@ from trainer import trainer
 import time
 
 
-parser = argparse.ArgumentParser()
+
+parser = argparse.ArgumentParser() 
 parser.add_argument('--root_path', type=str, default='', help='root dir for data')
 parser.add_argument('--output', type=str, default='./output')
 parser.add_argument('--dataset', type=str, default='kvasir', help='experiment_name')
-parser.add_argument('--num_classes', type=int, default=5, help='output channel of network')
-parser.add_argument('--max_epochs', type=int, default=100, help='maximum epoch number to train')
+parser.add_argument('--num_classes', type=int, default=256, help='output channel of network')
+parser.add_argument('--max_epochs', type=int, default=50, help='maximum epoch number to train')
 parser.add_argument('--batch_size', type=int, default=1, help='batch_size per gpu')
 parser.add_argument('--gpu_id', type=str, default='1', help='total gpu')
 parser.add_argument('--deterministic', type=bool, default=False, help='whether use deterministic training')
@@ -29,7 +33,7 @@ parser.add_argument('--prompt_base_lr', type=float, default=0.005, help='prompt 
 parser.add_argument('--img_size', type=int, default=256, help='input patch size of network input')
 parser.add_argument('--seed', type=int, default=42, help='random seed')
 parser.add_argument('--vit_name', type=str, default='vit_b', help='select one vit model')
-parser.add_argument('--ckpt', type=str, default='/data1/li/Auto_SAMed/checkpoints/sam_vit_b_01ec64.pth', help='Pretrained checkpoint')
+parser.add_argument('--ckpt', type=str, default='/home/jovyan/BLO-SAM-master/sam_vit_b_01ec64.pth',help='Pretrained checkpoint')
 parser.add_argument('--lora_ckpt', type=str, default=None, help='Finetuned lora checkpoint')
 parser.add_argument('--rank', type=int, default=4, help='Rank for LoRA adaptation')
 parser.add_argument('--warmup', action='store_true', help='If activated, warp up the learning from a lower lr to the base_lr')
@@ -37,7 +41,7 @@ parser.add_argument('--warmup_period', type=int, default=250, help='Warp up iter
 parser.add_argument('--module', type=str, default='sam_lora_mask_decoder')
 parser.add_argument('--dice_param', type=float, default=0.8)
 
-parser.add_argument('--num_data', type=int, default=10, help='batch_size per gpu')
+parser.add_argument('--num_data', type=int, default=1, help='batch_size per gpu')
 parser.add_argument('--exp_type', type=str, default='vanilla')
 
 parser.add_argument('--weight_decay', type=float, default=0.1, help='weight decay')
@@ -45,6 +49,7 @@ parser.add_argument('--prompt_weight_decay', type=float, default=0.1, help='weig
 parser.add_argument('--unrolled', action='store_true', help='')
 parser.add_argument('--wandb_mode', type=str, default='disabled')
 args = parser.parse_args()
+
 
 if __name__ == "__main__":
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_id
@@ -68,9 +73,10 @@ if __name__ == "__main__":
                                                                 pixel_std=[1, 1, 1])
 
     pkg = import_module(args.module)
-    net = pkg.LoRA_Sam(sam, args.rank).cuda()
-
-    # net = LoRA_Sam(sam, args.rank).cuda()
+    #net = pkg.LoRA_Sam(sam, args.rank).cuda()
+    #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #net = pkg.LoRA_Sam(sam, args.rank).cpu()
+    net = LoRA_Sam(sam, args.rank).cuda()
     if args.lora_ckpt is not None:
         net.load_lora_parameters(args.lora_ckpt)
 

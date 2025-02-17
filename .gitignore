@@ -3,3 +3,6 @@ saved/
 output/
 output_car/
 output_celeb/
+sam_vit_b_01ec64.pth
+datasets/dataset_pipes.py
+datasets/.ipynb_checkpoints/

@@ -33,7 +33,7 @@ parser.add_argument('--ckpt', type=str, default='/data1/li/Auto_SAMed/checkpoint
 parser.add_argument('--lora_ckpt', type=str, default='checkpoints/epoch_159.pth', help='The checkpoint from LoRA')
 parser.add_argument('--vit_name', type=str, default='vit_b', help='Select one vit model')
 parser.add_argument('--rank', type=int, default=4, help='Rank for LoRA adaptation')
-parser.add_argument('--module', type=str, default='sam_lora_image_encoder')
+parser.add_argument('--module', type=str, default='sam_lora_image_decoder')
 parser.add_argument('--gpu_id', type=int, default=0, help='total gpu')
 parser.add_argument('--prompt_ckpt', type=str, default='checkpoints/epoch_159.pth', help='The checkpoint for prompt')
 

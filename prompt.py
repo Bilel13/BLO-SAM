@@ -38,7 +38,6 @@ class Prompt(object):
         # self.scheduler = torch.optim.lr_scheduler.OneCycleLR(
         #     self.optimizer, max_lr=args.base_lr, total_steps=self.max_iterations)
 
-
     def step(self, sampled_batch, valid_sampled_batch, eta, network_optimizer, unrolled, cur_iter):
         self.optimizer.zero_grad()
         if unrolled:
@@ -100,7 +99,7 @@ class Prompt(object):
                 v.grad = Variable(g.data)
             else:
                 v.grad.data.copy_(g.data)
-    
+
     def _compute_unrolled_model(self, image_batch, low_res_label_batch, eta, network_optimizer):
         
         outputs = self.model(image_batch, self.multimask_output, self.args.img_size)
