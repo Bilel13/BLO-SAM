@@ -25,7 +25,7 @@ from prompt import Prompt
 from medpy import metric
 from cal_dice import dice_score
 from dataset_kvasir import MultiInstanceSegmentationDataset, RandomGenerator
-from dataset_kvasir import collate_fn  # Replace with actual path if needed
+from dataset_ import collate_fn  # Replace with actual path if needed
 
 
 
@@ -61,7 +61,7 @@ def validate(args, model, validloader, multimask_output):
 
 def trainer(args, model, snapshot_path, multimask_output, low_res):
     if args.dataset == 'kvasir':
-        from dataset_kvasir import MultiInstanceSegmentationDataset, RandomGenerator
+        from dataset_pipes import MultiInstanceSegmentationDataset, RandomGenerator
     #elif args.dataset == 'lung':
       #  from datasets.dataset_lung import Synapse_dataset, RandomGenerator
     #elif args.dataset in ['brow', 'eye', 'hair', 'nose', 'mouth', 'celeb']:
@@ -84,7 +84,7 @@ def trainer(args, model, snapshot_path, multimask_output, low_res):
     num_classes = args.num_classes
     
     db_train = MultiInstanceSegmentationDataset(
-        img_dir='/home/jovyan/BLO-SAM-master/train/images', label_dir='/home/jovyan/BLO-SAM-master/train/masks',
+        img_dir='C:/Users/bilel/BLO-SAM/datasets/pipes/images', label_dir='C:/Users/bilel/BLO-SAM/datasets/pipes/masks',
         transform=transforms.Compose([RandomGenerator(
             output_size=[256,256], low_res=[64,64])
         ]),
