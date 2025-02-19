@@ -61,7 +61,7 @@ def validate(args, model, validloader, multimask_output):
 
 def trainer(args, model, snapshot_path, multimask_output, low_res):
     if args.dataset == 'kvasir':
-        from dataset_pipes import MultiInstanceSegmentationDataset, RandomGenerator
+        from dataset_kvasir import MultiInstanceSegmentationDataset, RandomGenerator
     #elif args.dataset == 'lung':
       #  from datasets.dataset_lung import Synapse_dataset, RandomGenerator
     #elif args.dataset in ['brow', 'eye', 'hair', 'nose', 'mouth', 'celeb']:
